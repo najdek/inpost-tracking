@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-title" content="Śledzenie InPost">
+    <meta name="application-name" content="Śledzenie InPost">
+    <meta name="msapplication-TileColor" content="#ffff00">
+    <meta name="theme-color" content="#ffff00">
+    <title>Śledzenie InPost</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.5/css/bulma.min.css">
+    <style>
+      .icon-back {
+        border: solid black;
+        border-width: 0 3px 3px 0;
+        display: inline-block;
+        padding: 3px;
+        transform: rotate(135deg);
+        -webkit-transform: rotate(135deg);
+      }
+      .tracking-step-desc {
+        font-style: italic;
+        color: #888888;
+        display: none;
+      }
+       #tracking-table tbody tr:first-child .tracking-step-desc {
+        display: block;
+      }
+      #tracking-table tbody tr:first-child {
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body style="display: none;">
+    <div id="page-main">
+      <section class="section" style="text-align: center;">
+        <div class="container">
+           <a href="./" class="title">Śledzenie Przesyłek InPost</a>
+           <div class="abox" style="max-width:400px; margin: auto; margin-top: 20px;">
+             <input id="input-numer" class="input is-warning" type="text" inputmode="numeric" style="width: 300px;" placeholder="Numer przesyłki"></input>
+             <a id="track-btn" class="button is-warning is-loading" style="margin-top: 5px;" onclick="trackBtn();">Sprawdź przesyłkę</a>
+             <div id="error-notification" style="display: none; margin-top: 20px;">
+               <div class="notification is-danger">
+                 <button class="delete" onclick="$('#error-notification').hide();"></button>
+                 <span id="error-message"></span>
+               </div>
+             </div>
+           </div>
+         </div>
+      </section>
+    </div>
+    <div id="page-details" style="display: none;">
+      <section class="hero is-warning"><div class="hero-body"><div class="container">
+        <h1 class="title">Śledzenie Przesyłek InPost</h1>
+        <h2 class="subtitle" id="details-title"></h2>
+        <a href="#" class="button is-light">
+          <span class="icon is-small">
+            <i class="icon-back"></i>
+          </span>
+          <span>Powrót</span>
+        </a>
+      </div></div></section>
+      <div class="container" style="margin-top: 30px;">
+        <div class="columns is-desktop" style="width: 100%;">
+          <table class="table column  is-half-desktop is-narrow is-bordered">
+            <tbody>
+              <tr><th>Numer przesyłki</th><td id="details-table-nr"></td></tr>
+              <tr><th>Kod pocztowy nadawcy</th><td id="details-table-postal-from"></td></tr>
+              <tr><th>Kod pocztowy odbiorcy</th><td id="details-table-postal-to"></td></tr>
+              <tr><th>Rodzaj</th><td id="details-table-service"></td></tr>
+              <tr><th>Aktualny status</th><td id="details-table-status"></td></tr>
+              <tr><th>Gabaryt</th><td id="details-table-size"></td></tr>
+              <tr><th>Paczka w Weekend</th><td id="details-table-weekend"></td></tr>
+            </tbody>
+          </table>
+          <div class="column is-half-desktop table-dropoffmachine-details table-targetmachine-details">
+            <table class="table is-narrow is-bordered table-dropoffmachine-details">
+              <tbody>
+                <tr class="table-dropoffmachine-details"><th>Punkt nadawczy</th><td id="details-table-dropoffmachine"></td></tr>
+                <tr class="table-dropoffmachine-details"><th>Czynny</th><td id="details-table-dropoffmachine-openinghours"></td></tr>
+                <tr class="table-dropoffmachine-details"><th>Opis</th><td id="details-table-dropoffmachine-desc"></td></tr>
+                <tr class="table-dropoffmachine-details"><th>Położenie</th><td id="details-table-dropoffmachine-location"></td></tr>
+                <tr class="table-dropoffmachine-details"><th>Adres</th><td id="details-table-dropoffmachine-address"></td></tr>
+              </tbody>
+            </table>
+            <table class="table is-narrow is-bordered table-targetmachine-details">
+              <tbody>
+                <tr class="table-targetmachine-details"><th>Punkt docelowy</th><td id="details-table-targetmachine"></td></tr>
+                <tr class="table-targetmachine-details"><th>Czynny</th><td id="details-table-targetmachine-openinghours"></td></tr>
+                <tr class="table-targetmachine-details"><th>Opis</th><td id="details-table-targetmachine-desc"></td></tr>
+                <tr class="table-targetmachine-details"><th>Położenie</th><td id="details-table-targetmachine-location"></td></tr>
+                <tr class="table-targetmachine-details"><th>Adres</th><td id="details-table-targetmachine-address"></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <table class="table" id="tracking-table">
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <footer class="footer" style="margin-top: 40px;">
+      <div class="content has-text-centered">
+        <p>
+         © 2020 <a href="https://najdek.me/">Mateusz Najdek</a>
+        </p>
+      </div>
+    </footer>
+  </body>
+  <script>
+    function showError(msg) {
+      $("#error-message").html(msg);
+      $("#error-notification").show();
+    }
+
+    function backToMain() {
+      $("#page-details").hide();
+      document.getElementById("input-numer").value = "";
+      $("body").show();
+      $("#page-main").show();
+      $("#track-btn").removeClass("is-loading");
+    }
+
+    var inpostServices = {
+      "inpost_locker_standard":      "Przesyłka paczkomatowa - standardowa",
+      "inpost_locker_allegro":       "Przesyłka paczkomatowa - Allegro Paczkomaty InPost",
+      "inpost_locker_allegro_smart": "Przesyłka paczkomatowa - Allegro Paczkomaty InPost (Smart)",
+      "inpost_locker_pass_thru":     "Przesyłka paczkomatowa - Podaj Dalej",
+      "inpost_letter_allegro":       "Przesyłka kurierska - Allegro MiniKurier24 InPost",
+      "inpost_courier_allegro":      "Przesyłka kurierska - Allegro Kurier24 InPost",
+      "inpost_courier_c2c":          "Przesyłka kurierska - InPost Kurier Standard",
+
+    }
+
+    function getInpostService(service) {
+      if (typeof inpostServices[service] !== "undefined") {
+        return inpostServices[service];
+      } else {
+        return service;
+      }
+    }
+
+    var inpostStatuses = null;
+    $.ajax({
+       url: "https://api-shipx-pl.easypack24.net/v1/statuses",
+       type: 'get',
+       dataType: 'json',
+       async: true,
+       success: function(data) {
+           inpostStatuses = data.items;
+           $("#track-btn").removeClass("is-loading");
+       },
+       error: function() {
+           backToMain();
+           showError("Błąd podczas pobierania danych o statusach z API InPost.<br>Spróbuj ponownie później.");
+       }
+    });
+
+    function getInpostStatus(name, type) {
+      if (type == "title") {
+        var result = inpostStatuses.filter(obj => {
+          return obj.name == name;
+        })
+        return result[0].title;
+      } else if (type == "desc") {
+        var result = inpostStatuses.filter(obj => {
+          return obj.name == name;
+        })
+        return result[0].description;
+      }
+
+    }
+
+    function showTrackingDetails(inpostData) {
+      console.log(inpostData);
+
+      $("#track-btn").removeClass("is-loading");
+      $("#tracking-table tbody").text("");
+
+      $("#page-main").hide();
+      $("body").show();
+
+      $("#details-title").text(inpostData.tracking_number);
+      $("#details-table-nr").text(inpostData.tracking_number);
+      $("#details-table-service").text(getInpostService(inpostData.service));
+      $("#details-table-status").text(getInpostStatus(inpostData.status, "title"));
+      $("#details-table-size").text(inpostData.custom_attributes.size);
+      inpostData.postal_from = inpostData.tracking_number.substring(1,3) + "-" + inpostData.tracking_number.substring(3,6);
+      inpostData.postal_to = inpostData.tracking_number.substring(10,12) + "-" + inpostData.tracking_number.substring(12,15);
+      $("#details-table-postal-from").text(inpostData.postal_from);
+      $("#details-table-postal-to").text(inpostData.postal_to);
+
+      if (typeof inpostData.custom_attributes.dropoff_machine_detail !== 'undefined') {
+        $("#details-table-dropoffmachine").text(inpostData.custom_attributes.dropoff_machine_detail.name);
+        $("#details-table-dropoffmachine-openinghours").text(inpostData.custom_attributes.dropoff_machine_detail.opening_hours);
+        $("#details-table-dropoffmachine-desc").text(inpostData.custom_attributes.dropoff_machine_detail.location_description);
+        $("#details-table-dropoffmachine-location").html("<a target='_blank' href='https://www.google.pl/maps/@"+inpostData.custom_attributes.dropoff_machine_detail.location.latitude+","+inpostData.custom_attributes.dropoff_machine_detail.location.longitude+",17z'>" + inpostData.custom_attributes.dropoff_machine_detail.location.latitude + ", " + inpostData.custom_attributes.dropoff_machine_detail.location.longitude + "</a>");
+        $("#details-table-dropoffmachine-address").text(inpostData.custom_attributes.dropoff_machine_detail.address.line1 + ", " + inpostData.custom_attributes.dropoff_machine_detail.address.line2);
+        $(".table-dropoffmachine-details").show();
+      } else {
+        $(".table-dropoffmachine-details").hide();
+      }
+
+      if (typeof inpostData.custom_attributes.target_machine_detail !== 'undefined') {
+        $("#details-table-targetmachine").text(inpostData.custom_attributes.target_machine_detail.name);
+        $("#details-table-targetmachine-openinghours").text(inpostData.custom_attributes.target_machine_detail.opening_hours);
+        $("#details-table-targetmachine-desc").text(inpostData.custom_attributes.target_machine_detail.location_description);
+        $("#details-table-targetmachine-location").html("<a target='_blank' href='https://www.google.pl/maps/@"+inpostData.custom_attributes.target_machine_detail.location.latitude+","+inpostData.custom_attributes.target_machine_detail.location.longitude+",17z'>" + inpostData.custom_attributes.target_machine_detail.location.latitude + ", " + inpostData.custom_attributes.target_machine_detail.location.longitude + "</a>");
+        $("#details-table-targetmachine-address").text(inpostData.custom_attributes.target_machine_detail.address.line1 + ", " + inpostData.custom_attributes.target_machine_detail.address.line2);
+        $(".table-targetmachine-details").show();
+      } else {
+        $(".table-targetmachine-details").hide();
+      }
+      if (inpostData.custom_attributes.end_of_week_collection == true) {
+        inpostData.weekend = "Tak";
+      } else {
+        inpostData.weekend = "Nie";
+      }
+      $("#details-table-weekend").text(inpostData.weekend);
+
+      $.each(inpostData.tracking_details, function(index, value) {
+        value.stepTitle = getInpostStatus(value.status, "title");
+        value.stepDesc = getInpostStatus(value.status, "desc");
+        value.stepDate = value.datetime.substring(0,10);
+        value.stepTime = value.datetime.substring(11,19);
+        $("#tracking-table tbody").append("<tr><td style='width: 120px;'>" + value.stepDate + "<br>" + value.stepTime + "</td><td>" + value.stepTitle + "<br><span class='tracking-step-desc'>" + value.stepDesc + "</span></td></tr>");
+        console.log(index);
+        console.log(value);
+      });
+
+      $("#page-details").show();
+    }
+    function trackBtn() {
+      $("#track-btn").addClass("is-loading");
+      var trackNr = document.getElementById("input-numer").value;
+      setUrlHash(trackNr);
+    }
+    function getInpostData(nr) {
+       $.ajax({
+          url: "https://api-shipx-pl.easypack24.net/v1/tracking/" + nr,
+          type: 'get',
+          dataType: 'json',
+          async: true,
+          success: function(data) {
+              showTrackingDetails(data);
+          },
+          error: function() {
+              backToMain();
+              showError("Błąd podczas pobierania informacji o przesyłce.<br>Sprawdź, czy numer przesyłki jest poprawny.");
+          }
+ 
+       });
+    }
+    document.getElementById("input-numer").addEventListener("keyup", function(event) {
+      if (event.keyCode === 13) {
+        event.preventDefault();
+        trackBtn();
+      }
+    });
+
+    function setUrlHash(hash) {
+      var url_ob = new URL(document.URL);
+      url_ob.hash = "#" + hash;
+      document.location.href = url_ob.href;
+    }
+
+    if (new URL(document.URL).hash.substr(1) > 0) {
+      getInpostData(new URL(document.URL).hash.substr(1));
+    } else {
+      $("body").show();
+    }
+
+    window.addEventListener("hashchange", function(){
+      hash = new URL(document.URL).hash.substr(1);
+      if (hash.length > 1) {
+        getInpostData(new URL(document.URL).hash.substr(1));
+      } else {
+        backToMain();
+      }
+    });
+  </script>
+</html>
